@@ -86,13 +86,14 @@ def create_alert():
     )
     try:
         db.session.add(alert_rule)
+        db.session.flush()
+        if not store_alert_rule_in_redis(alert_rule, discord_user_id=user.discord_user_id):
+            raise Exception("Redis sync failed")
         db.session.commit()
     except Exception:
         db.session.rollback()
         logger.exception("Failed to create alert rule in database for user_id=%s", user.id)
         return jsonify({"error": "Failed to create alert"}), 500
-
-    store_alert_rule_in_redis(alert_rule, discord_user_id=user.discord_user_id)
 
     return jsonify({"data": alert_rule.to_dict()}), 201
 
@@ -123,13 +124,15 @@ def delete_alert(alert_id: int):
 
     try:
         db.session.delete(rule)
+        db.session.flush()
+        if not remove_alert_rule_from_redis(user.id, alert_id):
+            raise Exception("Redis sync failed")
         db.session.commit()
     except Exception:
         db.session.rollback()
         logger.exception("Failed to delete alert rule %s for user_id=%s", alert_id, user.id)
         return jsonify({"error": "Failed to delete alert"}), 500
 
-    remove_alert_rule_from_redis(user.id, alert_id)
     return jsonify({"data": {"deleted": True, "id": alert_id}}), 200
 
 

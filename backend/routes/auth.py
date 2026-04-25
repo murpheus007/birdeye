@@ -4,7 +4,7 @@ from __future__ import annotations
 import secrets
 import time
 
-from flask import Blueprint, jsonify, request, session
+from flask import current_app, Blueprint, jsonify, request, session
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 
@@ -185,6 +185,19 @@ def update_settings():
     if webhook is not None:
         webhook = webhook.strip() if isinstance(webhook, str) else ""
         user.discord_webhook_url = webhook or None
+
+    db.session.flush()
+
+    if user.discord_user_id:
+        redis_client = current_app.extensions.get("redis_client")
+        if not redis_client:
+            db.session.rollback()
+            return jsonify({"error": "Redis client unavailable"}), 500
+        try:
+            redis_client.set(f"discord_to_user:{user.discord_user_id}", user.id)
+        except Exception:
+            db.session.rollback()
+            return jsonify({"error": "Redis sync failed"}), 500
 
     db.session.commit()
 

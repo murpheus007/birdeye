@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, jsonify, request
+from flask import current_app, Blueprint, jsonify, request
 
 from dto.contracts import WalletPortfolioDTO
 from extensions import db
@@ -35,6 +35,19 @@ def create_user():
         discord_user_id=discord_user_id,
     )
     db.session.add(user)
+    db.session.flush()
+
+    if user.discord_user_id:
+        redis_client = current_app.extensions.get("redis_client")
+        if not redis_client:
+            db.session.rollback()
+            return jsonify({"error": "Redis client unavailable"}), 500
+        try:
+            redis_client.set(f"discord_to_user:{user.discord_user_id}", user.id)
+        except Exception:
+            db.session.rollback()
+            return jsonify({"error": "Redis sync failed"}), 500
+
     db.session.commit()
 
     return jsonify({"data": user.to_dict()}), 201
@@ -90,12 +103,13 @@ def create_alert_rule():
     )
     try:
         db.session.add(rule)
+        db.session.flush()
+        if not store_alert_rule_in_redis(rule, discord_user_id=user.discord_user_id):
+            raise Exception("Redis sync failed")
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Failed to create alert rule"}), 500
-
-    store_alert_rule_in_redis(rule, discord_user_id=user.discord_user_id)
 
     return jsonify({"data": rule.to_dict()}), 201
 
@@ -160,6 +174,18 @@ def add_watchlist_item():
     if existing:
         existing.token_name = payload.get("token_name") or existing.token_name
         existing.symbol = payload.get("symbol") or existing.symbol
+        db.session.flush()
+
+        redis_client = current_app.extensions.get("redis_client")
+        if not redis_client:
+            db.session.rollback()
+            return jsonify({"error": "Redis client unavailable"}), 500
+        try:
+            redis_client.sadd(f"watchlist:user:{user.id}", token_address)
+        except Exception:
+            db.session.rollback()
+            return jsonify({"error": "Redis sync failed"}), 500
+
         db.session.commit()
         return jsonify({"data": existing.to_dict(), "status": "updated"}), 200
 
@@ -170,6 +196,18 @@ def add_watchlist_item():
         symbol=payload.get("symbol"),
     )
     db.session.add(item)
+    db.session.flush()
+
+    redis_client = current_app.extensions.get("redis_client")
+    if not redis_client:
+        db.session.rollback()
+        return jsonify({"error": "Redis client unavailable"}), 500
+    try:
+        redis_client.sadd(f"watchlist:user:{user.id}", token_address)
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Redis sync failed"}), 500
+
     db.session.commit()
     return jsonify({"data": item.to_dict(), "status": "created"}), 201
 
