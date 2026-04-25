@@ -155,13 +155,36 @@ def update_settings():
     webhook = payload.get("discord_webhook_url")
     discord_user_id = payload.get("discord_user_id")
 
+    # Handle Discord User ID first because it might cause a user merge/switch
+    if discord_user_id is not None:
+        discord_user_id = discord_user_id.strip() if isinstance(discord_user_id, str) else ""
+        if discord_user_id:
+            # Check if this Discord ID is already linked to another wallet
+            existing_user = User.query.filter_by(discord_user_id=discord_user_id).first()
+            if existing_user and existing_user.id != user.id:
+                # Merge: Current wallet moves to the record that already has this Discord ID
+                # This ensures alerts stay tied to the Discord identity.
+                current_wallet = user.wallet_address
+                
+                # Delete the current (likely new) user record to free the wallet_address
+                db.session.delete(user)
+                db.session.flush() # Release wallet_address constraint
+                
+                user = existing_user
+                user.wallet_address = current_wallet
+                
+                # Update session to point to the correct user record
+                session["user_id"] = user.id
+                session["wallet_address"] = user.wallet_address
+            else:
+                user.discord_user_id = discord_user_id
+        else:
+            user.discord_user_id = None
+
+    # Now update other settings on the (possibly new) 'user' object
     if webhook is not None:
         webhook = webhook.strip() if isinstance(webhook, str) else ""
         user.discord_webhook_url = webhook or None
-
-    if discord_user_id is not None:
-        discord_user_id = discord_user_id.strip() if isinstance(discord_user_id, str) else ""
-        user.discord_user_id = discord_user_id or None
 
     db.session.commit()
 

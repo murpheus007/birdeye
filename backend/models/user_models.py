@@ -17,7 +17,7 @@ class User(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     wallet_address: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     discord_webhook_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    discord_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    discord_user_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
