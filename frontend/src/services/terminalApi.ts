@@ -161,11 +161,17 @@ export const terminalApi = {
     return payload?.data
   },
 
-  async loginWithWallet(walletAddress: string, message: string, signature: string): Promise<AuthMeResponse> {
+  async loginWithWallet(
+    walletAddress: string,
+    message: string,
+    signature: string,
+    discordUserId?: string,
+  ): Promise<AuthMeResponse> {
     const payload = await post<any>('/auth/login', {
       wallet_address: walletAddress,
       message,
       signature,
+      discord_user_id: discordUserId,
     })
     return payload?.data
   },

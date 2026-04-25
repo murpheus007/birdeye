@@ -4,6 +4,7 @@ from __future__ import annotations
 import secrets
 import time
 
+import logging
 from flask import current_app, Blueprint, jsonify, request, session
 from solders.pubkey import Pubkey
 from solders.signature import Signature
@@ -11,6 +12,8 @@ from solders.signature import Signature
 from extensions import db
 from models.user_models import User
 from utils.session_auth import get_authenticated_user, unauthorized_response
+
+logger = logging.getLogger(__name__)
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
@@ -98,11 +101,62 @@ def login():
     if not is_valid:
         return jsonify({"error": "Signature verification failed"}), 401
 
+    discord_user_id = (payload.get("discord_user_id") or "").strip()
+
+    # 1. Check if user exists by wallet_address
     user = User.query.filter_by(wallet_address=wallet_address).first()
-    if user is None:
-        user = User(wallet_address=wallet_address)
-        db.session.add(user)
-        db.session.commit()
+
+    if user:
+        # User exists. If discord_user_id provided, ensure it's linked correctly.
+        if discord_user_id:
+            existing_discord_user = User.query.filter_by(discord_user_id=discord_user_id).first()
+            if existing_discord_user and existing_discord_user.id != user.id:
+                # Merge: This Discord ID belongs to another user record. 
+                # Move this wallet and all its alerts/watchlist to that record.
+                logger.info("Merging user %s into %s due to Discord ID link", user.id, existing_discord_user.id)
+                
+                # Move relations
+                for rule in user.alert_rules:
+                    rule.user_id = existing_discord_user.id
+                for item in user.watchlist_items:
+                    item.user_id = existing_discord_user.id
+                
+                # Free the wallet_address from the current (to-be-deleted) user
+                db.session.delete(user)
+                db.session.flush()
+                
+                user = existing_discord_user
+                user.wallet_address = wallet_address
+            else:
+                user.discord_user_id = discord_user_id
+    else:
+        # 2. Wallet not found. Check if we can find by discord_user_id instead.
+        if discord_user_id:
+            user = User.query.filter_by(discord_user_id=discord_user_id).first()
+            if user:
+                # Found by Discord! Link this new wallet to this user.
+                logger.info("Linking new wallet %s to existing Discord user %s", wallet_address, user.id)
+                user.wallet_address = wallet_address
+        
+        # 3. Create new user if still not found
+        if not user:
+            logger.info("Creating new user for wallet %s", wallet_address)
+            user = User(wallet_address=wallet_address, discord_user_id=discord_user_id or None)
+            db.session.add(user)
+
+    db.session.flush()
+
+    # 4. Redis Sync: Set source of truth mapping Discord -> User ID
+    if user.discord_user_id:
+        redis_client = current_app.extensions.get("redis_client")
+        if redis_client:
+            try:
+                redis_client.set(f"discord_to_user:{user.discord_user_id}", user.id)
+                logger.info("Synced discord_to_user:%s -> %s to Redis", user.discord_user_id, user.id)
+            except Exception:
+                logger.error("Failed to sync discord_to_user to Redis in login")
+
+    db.session.commit()
 
     session["user_id"] = user.id
     session["wallet_address"] = user.wallet_address
@@ -166,7 +220,15 @@ def update_settings():
                 # This ensures alerts stay tied to the Discord identity.
                 current_wallet = user.wallet_address
                 
-                # Delete the current (likely new) user record to free the wallet_address
+                logger.info("Merging user %s into %s during settings update", user.id, existing_user.id)
+                
+                # Move relations from the current session user to the existing Discord user
+                for rule in user.alert_rules:
+                    rule.user_id = existing_user.id
+                for item in user.watchlist_items:
+                    item.user_id = existing_user.id
+                
+                # Delete the current (likely new/temporary) user record to free the wallet_address
                 db.session.delete(user)
                 db.session.flush() # Release wallet_address constraint
                 
