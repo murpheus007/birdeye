@@ -1,26 +1,87 @@
-# Birdeye Radar - Solana Trading Dashboard
+# Birdeye Radar: Advanced Solana Intelligence & Monitoring Platform
 
-A comprehensive multi-container trading dashboard for Solana blockchain analysis with real-time price feeds, Discord bot notifications, and a modern web interface.
+[![System Architecture](https://img.shields.io/badge/Architecture-Distributed-blue.svg)](#system-architecture)
+[![Tech Stack](https://img.shields.io/badge/Stack-Flask%20%7C%20React%20%7C%20Redis%20%7C%20Postgres-green.svg)](#tech-stack)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 🚀 Overview
-
-Birdeye Radar is an open-source platform designed for Solana traders to monitor market activity, track token performance, and receive real-time alerts via Discord. It integrates data from the Birdeye API and provides a seamless experience across web and social channels.
-
-### Key Features
-- **Real-time Monitoring:** Track Solana tokens with live price updates and volume analysis.
-- **Discord Integration:** Set price alerts and receive notifications directly in your Discord server or DMs.
-- **Cache-First Architecture:** Optimized for performance and reduced API costs using Redis caching.
-- **Dockerized Environment:** Easy local setup and deployment using Docker Compose.
-- **Modern Tech Stack:** Built with React, Vite, Flask, PostgreSQL, and Redis.
+Birdeye Radar is a high-performance, distributed monitoring platform engineered for professional Solana traders. It bridges the gap between raw on-chain data and actionable intelligence by providing a low-latency pipeline for market activity, whale tracking, and automated real-time alerting.
 
 ---
 
-## 🛠️ Tech Stack
+## 🎯 Utility: Solving the 'Alpha' Gap
+In the high-velocity Solana ecosystem, the bottleneck isn't data availability—it's **data latency and relevance**. Birdeye Radar solves this by:
+- **Aggregating** multi-dimensional token data (Price, Volume, Market Cap) via Birdeye API.
+- **Throttling & Caching** requests to optimize Compute Unit (CU) consumption without sacrificing signal accuracy.
+- **Synchronizing** web-based analytics with social-based notifications (Discord) to ensure traders never miss a liquidity event.
 
-- **Frontend:** React, Vite, TypeScript, Tailwind CSS, Zustand, Recharts
-- **Backend:** Flask, Gunicorn, SQLAlchemy (PostgreSQL), Alembic (Migrations)
-- **Discord Bot:** discord.py
-- **Infrastructure:** Docker, Docker Compose, Nginx, Redis
+---
+
+## 🏗️ System Architecture
+
+Birdeye Radar is architected as a decoupled, multi-container system to ensure scalability, fault isolation, and ease of deployment.
+
+### High-Level Architecture Diagram
+```mermaid
+graph TD
+    Client((Web/Discord)) <--> Nginx[Nginx Reverse Proxy]
+    Nginx <--> Frontend[React/Vite SPA]
+    Nginx <--> Backend[Flask API]
+    Backend <--> Postgres[(PostgreSQL)]
+    Backend <--> Redis[Redis Event Bus & Cache]
+    Redis <--> Bot[Discord.py Bot]
+    Backend -- RPC -- Birdeye((Birdeye API))
+```
+
+### Infrastructure Components
+- **Nginx (Reverse Proxy):** Handles SSL termination, static asset serving, and request routing to the internal microservices.
+- **Docker (Orchestration):** Standardized environment isolation ensures "Write Once, Run Anywhere" consistency from local dev to production VPS.
+- **Redis (Pub/Sub & Cache):** Acts as both a high-speed cache for Birdeye API responses and a **real-time message broker** (Pub/Sub) to synchronize alert states between the Flask API and the Discord Bot.
+- **PostgreSQL (Persistence):** Robust, relational storage for user configurations, alert rules, and historical tracking data using multi-schema organization (`trading` & `bot`).
+
+---
+
+## 🛠️ Technical Depth & Engineering Excellence
+
+### 1. Schema Evolution with Alembic
+We utilize **Alembic** for rigorous database version control. This ensures that schema changes (migrations) are reproducible across all environments, eliminating "it works on my machine" issues and enabling seamless production rollouts.
+
+### 2. Real-Time Event Loop (Flask ↔ Discord)
+The platform implements a sophisticated **Redis Pub/Sub architecture** for cross-process communication:
+- **Flask** publishes rule changes or detected events to specialized Redis channels.
+- **Discord Bot** runs an asynchronous event loop, subscribing to these channels for immediate user notification without the overhead of polling.
+
+### 3. Cache-First Resource Management
+To maximize API efficiency, we've implemented an intelligent caching layer:
+- **Namespaced TTLs:** Different data types (Price vs. Metadata) have adaptive Time-To-Live (TTL) values.
+- **Graceful Degradation:** The system is resilient; if Redis becomes unavailable, the pipeline falls back to direct API fetching, maintaining service uptime.
+
+### 4. Hardened Security
+- **Environment Isolation:** Sensitive credentials (API keys, Discord tokens) are managed strictly via environment variables, never committed to source.
+- **CORS Protection:** Fine-grained Cross-Origin Resource Sharing policies protect the API from unauthorized frontend access.
+
+---
+
+## 🚀 Quick Start
+
+Ensure you have [Docker](https://www.docker.com/get-started) installed.
+
+### 1. Setup Environment
+```bash
+git clone https://github.com/your-username/birdeyeradar.git
+cd birdeyeradar
+cp .env.example .env
+```
+*Edit `.env` to include your `BIRDEYE_API_KEY`, `DISCORD_TOKEN`, and `SOLANA_RPC_URL`.*
+
+### 2. Launch Platform
+```bash
+docker compose up -d
+```
+The platform will automatically initialize the database, run migrations, and start the proxy.
+
+### 3. Access Points
+- **Frontend:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
 
 ---
 
@@ -28,130 +89,31 @@ Birdeye Radar is an open-source platform designed for Solana traders to monitor 
 
 ```text
 birdeyeradar/
-├── backend/            # Flask REST API
-│   ├── routes/         # API endpoints
-│   ├── models/         # SQLAlchemy ORM models
-│   ├── services/       # Business logic (Solana RPC, Birdeye API)
-│   └── alembic/        # Database migrations
-├── frontend/           # React + Vite web application
-│   ├── src/
-│   │   ├── components/ # Reusable UI components
-│   │   ├── pages/      # View components
-│   │   ├── stores/     # Zustand state management
-│   │   └── services/   # API client services
-├── discord-bot/        # Discord.py bot implementation
-│   ├── cogs/           # Modular bot commands
-│   └── services/       # Bot-specific business logic
-├── db-init/            # SQL scripts for database initialization
-├── .nginx/             # Nginx reverse proxy configuration
-└── docker-compose.yml  # Container orchestration
+├── backend/            # Flask REST API + Gunicorn
+│   ├── routes/         # Blueprinted API Endpoints
+│   ├── models/         # SQLAlchemy ORM (Postgres)
+│   ├── services/       # Core Logic (Redis, Birdeye, Solana)
+│   └── alembic/        # Database Migrations
+├── frontend/           # React + Vite (TypeScript)
+│   ├── src/stores/     # Zustand State Management
+│   └── src/services/   # Axios Client + Interceptors
+├── discord-bot/        # Discord.py Implementation
+│   ├── cogs/           # Modular Command Extensions
+│   └── services/       # Async Pub/Sub Listeners
+├── .nginx/             # Reverse Proxy Configuration
+└── docker-compose.yml  # Distributed Service Orchestration
 ```
 
 ---
-
-## 🚀 Quick Start
-
-### Prerequisites
-- [Docker](https://www.docker.com/get-started) & Docker Compose
-- Git
-
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/birdeyeradar.git
-   cd birdeyeradar
-   ```
-
-2. **Setup Environment Variables:**
-   Copy the example environment file and fill in your keys:
-   ```bash
-   cp .env.example .env
-   ```
-   *Required keys:* `BIRDEYE_API_KEY`, `DISCORD_TOKEN`, `SOLANA_RPC_URL`.
-
-3. **Start the application:**
-   ```bash
-   # Start all services in the background
-   docker compose up -d
-   ```
-
-4. **Verify services are running:**
-   ```bash
-   docker compose ps
-   ```
-
-5. **Access the application:**
-   - **Web Interface:** [http://localhost:3000](http://localhost:3000)
-   - **Backend API:** [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
-
----
-
-## 🔧 Development
-
-### Useful Commands (Makefile)
-The project includes a `Makefile` for common tasks:
-- `make up`: Start all services
-- `make down`: Stop all services
-- `make build`: Rebuild images
-- `make logs`: View logs from all services
-- `make db-shell`: Access PostgreSQL shell
-- `make test`: Run backend and frontend tests
-
-### Local Development Mode
-For a development environment with hot-reloading:
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-```
-
----
-
-## 📡 API Endpoints
-
-
-### Backend Tests
-```bash
-docker exec birdeye-backend /app/.venv/bin/pytest
-docker exec birdeye-backend /app/.venv/bin/pytest --cov
-```
-
-### Frontend Tests
-```bash
-docker exec birdeye-frontend npm run test
-```
-
-## 🛑 Stopping and Cleanup
-
-### Stop Services
-```bash
-# Keep volumes (data persists)
-docker-compose down
-
-# Remove volumes (destroy data)
-docker-compose down -v
-```
-
-### Clean Everything
-```bash
-docker-compose down -v --rmi all
-```
-
-## 📚 Additional Resources
-
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Solana RPC API](https://docs.solana.com/api/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [React Documentation](https://react.dev/)
-- [discord.py Documentation](https://discordpy.readthedocs.io/)
 
 ## 🤝 Contributing
-
-1. Create feature branch: `git checkout -b feature/MyFeature`
-2. Commit changes: `git commit -m 'Add MyFeature'`
-3. Push to branch: `git push origin feature/MyFeature`
-4. Open Pull Request
+Engineering leads interested in contributing to the Radar pipeline should follow the standard PR workflow. Ensure all changes are validated against the internal test suite:
+- **Backend:** `make test-backend`
+- **Frontend:** `make test-frontend`
 
 ---
 
-**Last Updated:** 2026-04-25
-**Version:** 1.0.0
+## 📄 License
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+**Last Updated:** April 2026 | **Version:** 1.0.0
