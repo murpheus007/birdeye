@@ -15,7 +15,7 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     
     # CORS Configuration
-    CORS_ORIGINS = ["http://localhost:3000", "http://localhost"]
+    CORS_ORIGINS = ["http://localhost:3000", "http://localhost", "https://birdeyeradar.site"]
     
     # API Configuration
     JSON_SORT_KEYS = False

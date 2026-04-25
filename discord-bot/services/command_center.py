@@ -16,10 +16,12 @@ from services.birdeye_lookup import (
     fetch_whales_snapshot,
 )
 
+from utils.config import BotConfig
+
 logger = logging.getLogger(__name__)
 
 EMBED_COLOR = int(os.getenv("DISCORD_EMBED_COLOR", "FF8C00"), 16)
-DASHBOARD_URL = os.getenv("DASHBOARD_BASE_URL", "https://birdeyeradar.site")
+DASHBOARD_URL = BotConfig.DASHBOARD_BASE_URL
 
 
 class WhalesTimeframeSelect(discord.ui.Select):

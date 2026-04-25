@@ -28,7 +28,7 @@ class BotConfig:
     BIRDEYE_API_KEY = os.getenv('BIRDEYE_API_KEY')
 
     # Alerts
-    DASHBOARD_BASE_URL = os.getenv('DASHBOARD_BASE_URL', 'http://localhost:3000')
+    DASHBOARD_BASE_URL = os.getenv('DASHBOARD_BASE_URL', 'https://birdeyeradar.site')
     ALERT_RULE_COOLDOWN_SECONDS = int(os.getenv('ALERT_RULE_COOLDOWN_SECONDS', '300'))
     
     # Behavior

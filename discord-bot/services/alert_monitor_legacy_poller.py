@@ -14,6 +14,8 @@ from sqlalchemy import text
 from services.database_service import DatabaseService
 
 
+from utils.config import BotConfig
+
 logger = logging.getLogger(__name__)
 
 EMBED_COLOR_ORANGE = 0xFF8A00
@@ -65,7 +67,7 @@ class LegacyAlertMonitorPollerCog(commands.Cog):
         self.db = DatabaseService()
         self.birdeye_api_base = os.getenv("BIRDEYE_API_BASE_URL", "https://public-api.birdeye.so")
         self.birdeye_api_key = os.getenv("BIRDEYE_API_KEY", "")
-        self.dashboard_base_url = os.getenv("DASHBOARD_BASE_URL", "https://birdeyeradar.site")
+        self.dashboard_base_url = BotConfig.DASHBOARD_BASE_URL
         self._cooldown_seconds = int(os.getenv("ALERT_RULE_COOLDOWN_SECONDS", "300"))
         self._last_sent: dict[str, float] = {}
         self.http_session: aiohttp.ClientSession | None = None
