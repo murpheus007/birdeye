@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --accent-rgb: 255 143 64;
+    --accent-soft-rgb: 255 205 133;
+    --accent-strong-rgb: 227 104 18;
+    --accent-glow-rgb: 255 174 102;
+    --canvas-rgb: 5 5 5;
+  }
+
+  html[data-theme='ember'] {
+    --accent-rgb: 255 112 67;
+    --accent-soft-rgb: 255 177 128;
+    --accent-strong-rgb: 228 81 31;
+    --accent-glow-rgb: 255 150 110;
+  }
+
+  html[data-theme='tide'] {
+    --accent-rgb: 64 197 182;
+    --accent-soft-rgb: 160 235 229;
+    --accent-strong-rgb: 24 150 145;
+    --accent-glow-rgb: 113 224 214;
+  }
+
+  html[data-theme='midnight'] {
+    --accent-rgb: 105 138 255;
+    --accent-soft-rgb: 168 188 255;
+    --accent-strong-rgb: 64 93 199;
+    --accent-glow-rgb: 143 163 255;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-zinc-100 antialiased font-body;
+    background-image: radial-gradient(circle at 20% 10%, rgb(var(--accent-rgb) / 0.11), transparent 45%),
+      radial-gradient(circle at 85% 0%, rgb(var(--accent-glow-rgb) / 0.08), transparent 30%),
+      linear-gradient(rgb(var(--accent-rgb) / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--accent-rgb) / 0.035) 1px, transparent 1px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
+  }
+
+  ::selection {
+    background: rgb(var(--accent-rgb) / 0.3);
+    color: #fff7ed;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-line bg-panel/90 backdrop-blur-sm;
+  }
+
+  .panel-title {
+    @apply text-sm uppercase tracking-[0.18em] text-neonOrange/85 font-display;
+  }
+}
